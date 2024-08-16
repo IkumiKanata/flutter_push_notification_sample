@@ -1,18 +1,50 @@
+import 'package:aws_sns_api/sns-2010-03-31.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'firebase_options.dart';
 
+// 1. バックグラウンドメッセージハンドラーの定義
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // ここでバックグラウンドメッセージを処理します
+  print("Handling a background message: ${message.data}");
+  print("Handling a background message: ${message.contentAvailable}");
+}
+
+
 Future<void> main() async {
+  await dotenv.load(fileName: '.env'); // envファイル読み込み
+
+  // 環境変数からAWSの認証情報を読み込む
+  final awsAccessKeyId = dotenv.env['AWS_ACCESS_KEY_ID'];
+  final awsSecretAccessKey = dotenv.env['AWS_SECRET_ACCESS_KEY'];
+  final snsEndPoint = dotenv.env['SNS_END_POINT'];
+
+  if (awsAccessKeyId == null || awsSecretAccessKey == null) {
+    throw Exception('AWSの認証情報が環境変数に設定されていません');
+  }
+  // AWSの認証情報を作成
+  final AwsClientCredentials credentials = AwsClientCredentials(
+    accessKey: awsAccessKeyId,
+    secretKey: awsSecretAccessKey,
+  );
   print('Hello World');
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   final messaging = FirebaseMessaging.instance;
   final token = await messaging.getToken();
   print("token: $token");
+
+  // SNSのクライアントを作成し、プラットフォームエンドポイントを作成
+  final service = SNS(region: 'ap-northeast-1', credentials: credentials);
+  final response = service.createPlatformEndpoint(platformApplicationArn: snsEndPoint!, token: token.toString());
+  print ("response: $response");
   runApp(const MyApp());
 }
 
@@ -60,7 +92,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'Flutter Demo Home Pag1e'),
     );
   }
 }
